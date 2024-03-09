@@ -1,9 +1,14 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter_vibrate/flutter_vibrate.dart';
 import 'package:avatar_glow/avatar_glow.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:sizer/sizer.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:rxdart/rxdart.dart';
 
 class ControlPage extends StatefulWidget {
   final BluetoothConnection connection;
@@ -18,6 +23,65 @@ class _ControlPageState extends State<ControlPage> {
   bool _isListening = false;
   SpeechToText speechToText = SpeechToText();
   dynamic text = '';
+  late StreamController<String> _sensorDataController;
+  StreamSubscription<Uint8List>? _dataStreamSubscription; // nullable type
+  String _receivedData = "";
+  dynamic ultraData;
+  dynamic distance;
+
+  @override
+  void initState() {
+    super.initState();
+    _sensorDataController = StreamController<String>.broadcast();
+    // Call setup listener after initState finishes
+    WidgetsBinding.instance.addPostFrameCallback((_) => _setupDataStreamListener());
+  }
+
+  @override
+  void dispose() {
+    _sensorDataController.close();
+    _dataStreamSubscription?.cancel(); // Use safe null check
+    super.dispose();
+  }
+
+  void _setupDataStreamListener() {
+    if(_dataStreamSubscription != null) {
+      _dataStreamSubscription?.cancel();
+    }
+
+    _dataStreamSubscription ??= widget.connection.input?.listen((Uint8List data) {
+      setState(() {
+        _receivedData = utf8.decode(data);
+        ultraData = _receivedData.toString();
+        print("The distance is: $ultraData");
+        _sensorDataController.add(ultraData);
+      });
+    });
+  }
+
+
+
+
+//   void _onDataReceived(Uint8List data) {
+//     // Parse and handle received data
+//     setState(() {
+//       _receivedData = utf8.decode(data); // Decode received bytes
+//       ultraData = _receivedData.toString();
+// // Update sensor data
+//     });
+//   }
+
+
+  void _vibrate() async {
+    // Check if the device supports vibration
+    if (await Vibrate.canVibrate) {
+      // Vibrate for 100 milliseconds
+      Vibrate.feedback(FeedbackType.light);
+      Vibrate.vibrate();
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -53,12 +117,12 @@ class _ControlPageState extends State<ControlPage> {
 
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontFamily: 'Aldrich',
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  // fontSize: 20
-                  fontSize: 17.0.sp,
-                  ),
+                fontFamily: 'Aldrich',
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                // fontSize: 20
+                fontSize: 17.0.sp,
+              ),
             ),
           ),
 
@@ -96,6 +160,7 @@ class _ControlPageState extends State<ControlPage> {
               glowShape: BoxShape.circle,
               child: GestureDetector(
                 onTapDown: (details) async{
+                  _vibrate();
                   print('tapped');
                   if(!_isListening){
                     bool available = await speechToText.initialize();
@@ -163,7 +228,11 @@ class _ControlPageState extends State<ControlPage> {
           ),
 
           GestureDetector(
-              onTapDown: (details) => _sendCommand('S'),
+              onTapDown: (details) {
+                _vibrate();
+                _sendCommand('S');
+
+              },
               onTapUp: (details) => _sendCommand('S'),
               child: Padding(
                 // padding: EdgeInsets.only(top: 260, left: 470),
@@ -176,7 +245,7 @@ class _ControlPageState extends State<ControlPage> {
                 ),
               )),
           Padding(
-              // padding: EdgeInsets.only(top: 285, left: 488),
+            // padding: EdgeInsets.only(top: 285, left: 488),
               padding: EdgeInsets.only(top: 79.0.w, left: 64.4.h),
 
               child: Text(
@@ -187,7 +256,10 @@ class _ControlPageState extends State<ControlPage> {
                 ),
               )),
           GestureDetector(
-              onTapDown: (details) => _sendCommand('F'),
+              onTapDown: (details) {
+                _vibrate();
+                _sendCommand('F');
+              },
               onTapUp: (details) => _sendCommand('S'),
               child: Padding(
                 // padding: EdgeInsets.only(top: 120, left: 50),
@@ -198,7 +270,10 @@ class _ControlPageState extends State<ControlPage> {
                 ),
               )),
           GestureDetector(
-              onTapDown: (details) => _sendCommand('B'),
+              onTapDown: (details) {
+                _vibrate();
+                _sendCommand('B');
+              },
               onTapUp: (details) => _sendCommand('S'),
               child: Padding(
                 // padding: EdgeInsets.only(top: 230, left: 50),
@@ -222,7 +297,10 @@ class _ControlPageState extends State<ControlPage> {
             ),
           ),
           GestureDetector(
-              onTapDown: (details) => _sendCommand('L'),
+              onTapDown: (details) {
+                _vibrate();
+                _sendCommand('L');
+              },
               onTapUp: (details) => _sendCommand('S'),
               child: Padding(
                 // padding: EdgeInsets.only(top: 160, left: 530),
@@ -233,15 +311,44 @@ class _ControlPageState extends State<ControlPage> {
                 ),
               )),
           GestureDetector(
-              onTapDown: (details) => _sendCommand('R'),
+              onTapDown: (details) {
+                _vibrate();
+                _sendCommand('R');
+              },
               onTapUp: (details) => _sendCommand('S'),
               child: Padding(
                 // padding: EdgeInsets.only(top: 160, left: 630),
                 padding: EdgeInsets.only(top: 44.0.w, left: 85.0.h),
 
                 child: Image.asset("assets/images/right_Buttoncontrol.png",),)),
+          Padding(
+              padding: EdgeInsets.only(top: 35.0.w,left: 38.0.h),
+              child: Text(
+                "Distance between obstacle",
+                style: TextStyle(fontFamily: 'Aldrich', fontSize: 13.0.sp,color: Colors.white),
+              )),
 
-
+          // Padding(
+          //     padding: EdgeInsets.only(top: 45.0.w,left: 47.0.h),
+          //   child: Text(
+          //     ultraData,
+          //     style: TextStyle(fontSize: 15.0.sp,fontFamily: 'Aldrich',color: Colors.white,fontWeight: FontWeight.bold),
+          //   ),
+          // ),
+          Padding(
+            padding: EdgeInsets.only(top: 45.0.w,left: 47.0.h),
+            child: StreamBuilder<String>(
+              stream: _sensorDataController.stream,
+              initialData: 'No Data',
+              builder: (context, snapshot) {
+                distance = snapshot.data!;
+                return Text(
+                  distance.toString(),
+                  style: TextStyle(fontSize: 15.0.sp,fontFamily: 'Aldrich',color: Colors.white,fontWeight: FontWeight.bold),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -250,36 +357,10 @@ class _ControlPageState extends State<ControlPage> {
     List<int> list = command.codeUnits;
     Uint8List bytes = Uint8List.fromList(list);
     widget.connection.output.add(bytes);
-    print('${command.toString()}');
+    print(command.toString());
     await widget.connection.output.allSent;
     // You can add any additional logic or UI updates based on the command if needed
   }
 
-
-  void _onDataReceived(Uint8List data) {
-    // Allocate buffer for parsed data
-    int backspacesCounter = 0;
-    data.forEach((byte) {
-      if (byte == 8 || byte == 127) {
-        backspacesCounter++;
-      }
-    });
-    Uint8List buffer = Uint8List(data.length - backspacesCounter);
-    int bufferIndex = buffer.length;
-
-    // Apply backspace control character
-    backspacesCounter = 0;
-    for (int i = data.length - 1; i >= 0; i--) {
-      if (data[i] == 8 || data[i] == 127) {
-        backspacesCounter++;
-      } else {
-        if (backspacesCounter > 0) {
-          backspacesCounter--;
-        } else {
-          buffer[--bufferIndex] = data[i];
-        }
-      }
-    }
-  }
 }
 
