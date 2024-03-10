@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:roboroamer1/control_page.dart';
 import 'package:sizer/sizer.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 
 class BluetoothApp extends StatefulWidget {
@@ -15,36 +16,140 @@ class BluetoothApp extends StatefulWidget {
 }
 
 class _BluetoothAppState extends State<BluetoothApp> {
+//   BluetoothState _bluetoothState = BluetoothState.UNKNOWN;
+// // Initializing a global key, as it would help us in showing a SnackBar later
+//   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+// // Get the instance of the Bluetooth
+//   FlutterBluetoothSerial _bluetooth = FlutterBluetoothSerial.instance;
+// // Track the Bluetooth connection with the remote device
+//   BluetoothConnection? connection;
+//
+//   int? _deviceState;
+//
+//   bool isDisconnecting = false;
+//
+//
+//
+// // To track whether the device is still connected to Bluetooth
+//   bool get isConnected => connection != null && connection!.isConnected;
+//
+// // Define some variables, which will be required later
+//   List<BluetoothDevice> _devicesList = [];
+//   BluetoothDevice? _device;
+//   bool _connected = false;
+//
+//   bool _isButtonUnavailable = false;
+//
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//
+// // Get current state
+//     FlutterBluetoothSerial.instance.state.then((state) {
+//       setState(() {
+//         _bluetoothState = state;
+//       });
+//     });
+//
+//     _deviceState = 0; // neutral
+//
+// // If the bluetooth of the device is not enabled,
+// // then request permission to turn on bluetooth
+// // as the app starts up
+//     enableBluetooth();
+//
+// // Listen for further state changes
+//     FlutterBluetoothSerial.instance
+//         .onStateChanged()
+//         .listen((BluetoothState state) {
+//       setState(() {
+//         _bluetoothState = state;
+//         if (_bluetoothState == BluetoothState.STATE_OFF) {
+//           _isButtonUnavailable = true;
+//         }
+//         getPairedDevices();
+//       });
+//     });
+//   }
+//
+//   @override
+//   void dispose() {
+// // Avoid memory leak and disconnect
+//     if (isConnected) {
+//       isDisconnecting = true;
+//       connection?.dispose();
+//       connection = null;
+//     }
+//
+//     super.dispose();
+//   }
+//
+// // Request Bluetooth permission from the user
+//   Future<bool> enableBluetooth() async {
+// // Retrieving the current Bluetooth state
+//     _bluetoothState = await FlutterBluetoothSerial.instance.state;
+//
+// // If the bluetooth is off, then turn it on first
+// // and then retrieve the devices that are paired.
+//     if (_bluetoothState == BluetoothState.STATE_OFF) {
+//       await FlutterBluetoothSerial.instance.requestEnable();
+//       await getPairedDevices();
+//       return true;
+//     } else {
+//       await getPairedDevices();
+//     }
+//     return false;
+//   }
+//
+// // For retrieving and storing the paired devices
+// // in a list.
+//   Future<void> getPairedDevices() async {
+//     List<BluetoothDevice> devices = [];
+//
+// // To get the list of paired devices
+//     try {
+//       devices = await _bluetooth.getBondedDevices();
+//     } on PlatformException {
+//       print("Error");
+//     }
+//
+// // It is an error to call [setState] unless [mounted] is true.
+//     if (!mounted) {
+//       return;
+//     }
+//
+// // Store the [devices] list in the [_devicesList] for accessing
+// // the list outside this class
+//     setState(() {
+//       _devicesList = devices;
+//     });
+//   }
+
+
   BluetoothState _bluetoothState = BluetoothState.UNKNOWN;
-// Initializing a global key, as it would help us in showing a SnackBar later
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-// Get the instance of the Bluetooth
   FlutterBluetoothSerial _bluetooth = FlutterBluetoothSerial.instance;
-// Track the Bluetooth connection with the remote device
   BluetoothConnection? connection;
-
   int? _deviceState;
-
   bool isDisconnecting = false;
 
-
-
-// To track whether the device is still connected to Bluetooth
+  // Track whether the device is still connected to Bluetooth
   bool get isConnected => connection != null && connection!.isConnected;
 
-// Define some variables, which will be required later
   List<BluetoothDevice> _devicesList = [];
   BluetoothDevice? _device;
   bool _connected = false;
-
   bool _isButtonUnavailable = false;
 
+  // Define a bool to track permission status
+  bool _permissionGranted = false;
 
   @override
   void initState() {
     super.initState();
 
-// Get current state
+    // Get current state
     FlutterBluetoothSerial.instance.state.then((state) {
       setState(() {
         _bluetoothState = state;
@@ -53,12 +158,17 @@ class _BluetoothAppState extends State<BluetoothApp> {
 
     _deviceState = 0; // neutral
 
-// If the bluetooth of the device is not enabled,
-// then request permission to turn on bluetooth
-// as the app starts up
-    enableBluetooth();
 
-// Listen for further state changes
+    // Request Nearby Share permission in initState
+    _requestNearbySharePermission().then((granted) {
+      setState(() {
+        _permissionGranted = granted;
+        enableBluetooth();
+      });
+    });
+
+
+    // Listen for further state changes
     FlutterBluetoothSerial.instance
         .onStateChanged()
         .listen((BluetoothState state) {
@@ -66,15 +176,17 @@ class _BluetoothAppState extends State<BluetoothApp> {
         _bluetoothState = state;
         if (_bluetoothState == BluetoothState.STATE_OFF) {
           _isButtonUnavailable = true;
+
         }
-        getPairedDevices();
+
+        enableBluetooth();
       });
     });
   }
 
   @override
   void dispose() {
-// Avoid memory leak and disconnect
+    // Avoid memory leak and disconnect
     if (isConnected) {
       isDisconnecting = true;
       connection?.dispose();
@@ -84,7 +196,24 @@ class _BluetoothAppState extends State<BluetoothApp> {
     super.dispose();
   }
 
-// Request Bluetooth permission from the user
+  Future<bool> _requestNearbySharePermission() async {
+    var permissionStatus = await Permission.bluetoothScan.status;
+    var permissionStatus2 = await Permission.bluetoothConnect.status;
+    var permissionStatus3 = await Permission.bluetooth.status;
+
+    if (permissionStatus.isGranted && permissionStatus2.isGranted && permissionStatus3.isGranted) {
+      return true;
+    } else {
+      // Request permission if not granted
+      var status = await Permission.bluetoothScan.request();
+      var status2 = await Permission.bluetoothConnect.request();
+      var status3 = await Permission.bluetooth.request();
+
+      return status.isGranted && status2.isGranted && status3.isGranted;
+    }
+  }
+
+  // Request Bluetooth permission from the user
   Future<bool> enableBluetooth() async {
 // Retrieving the current Bluetooth state
     _bluetoothState = await FlutterBluetoothSerial.instance.state;
@@ -101,25 +230,26 @@ class _BluetoothAppState extends State<BluetoothApp> {
     return false;
   }
 
-// For retrieving and storing the paired devices
-// in a list.
+  // For retrieving and storing the paired devices
+  // in a list.
   Future<void> getPairedDevices() async {
     List<BluetoothDevice> devices = [];
 
-// To get the list of paired devices
+    // To get the list of paired devices
     try {
       devices = await _bluetooth.getBondedDevices();
+      print("Retrieved devices: $devices"); // Check if devices are found here
     } on PlatformException {
       print("Error");
     }
 
-// It is an error to call [setState] unless [mounted] is true.
+    // It is an error to call [setState] unless [mounted] is true.
     if (!mounted) {
       return;
     }
 
-// Store the [devices] list in the [_devicesList] for accessing
-// the list outside this class
+    // Store the [devices] list in the [_devicesList] for accessing
+    // the list outside this class
     setState(() {
       _devicesList = devices;
     });
@@ -190,7 +320,7 @@ class _BluetoothAppState extends State<BluetoothApp> {
                     ),
                     // const SizedBox(height: 5), // Adjust spacing between text and list
                     Expanded(
-                      child: ListView.builder(
+                      child:_permissionGranted && _devicesList.isNotEmpty ?ListView.builder(
                         itemCount: _devicesList.length,
                         itemBuilder: (context, index) {
                           BluetoothDevice device = _devicesList[index];
@@ -226,7 +356,12 @@ class _BluetoothAppState extends State<BluetoothApp> {
                             ),
                           );
                         },
-                      ),
+                      ) : Center(
+                    child: Text(
+                    'No Bluetooth devices found.',
+                      style: TextStyle(fontFamily: 'Aldrich',color: Colors.white,fontSize: 14.0.sp),// Adjust message if needed
+                    ),
+              ),
                     ),
                   ],
                 ),

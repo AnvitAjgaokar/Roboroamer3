@@ -40,7 +40,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2
   flutter_bluetooth_serial: ^0.4.0
-  permission_handler: ^11.0.1
+  permission_handler: ^11.3.0
   get: ^4.6.5
   avatar_glow: 3.0.1
   speech_to_text: 6.6.1
@@ -54,6 +54,12 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo3.png"
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -119,7 +125,7 @@ flutter_native_splash:
   # of your splash screen to a solid color.  Use background_image to set the background of your
   # splash screen to a png image.  This is useful for gradients. The image will be stretch to the
   # size of the app. Only one parameter can be used, color and background_image cannot both be set.
-  color: "#070F2B"
+  color: "#FFFFFF"
   #background_image: "assets/images/splashsplash.png"
 
   # Optional parameters are listed below.  To enable a parameter, uncomment the line by removing
@@ -162,7 +168,7 @@ flutter_native_splash:
     #image: assets/android12splash.png
 
     # Splash screen background color.
-    color: "#070F2B"
+    color: "#FFFFFF"
 
   # App icon background color.
   #icon_background_color: "#111111"
